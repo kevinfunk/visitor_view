@@ -1,6 +1,8 @@
 # Visitor View
 
 A true frontend preview experience for Drupal.
+<img width="640" height="435" alt="visitor-view" src="https://github.com/user-attachments/assets/7d95f522-501a-485a-84f0-0160c6c717b8" />
+
 
 Visitor View integrates seamlessly with Drupal 11's new Navigation module by adding a contextual **"Preview"** action to your Top Bar. With one click, it launches a new tab that renders the current page using your exact frontend theme, stripping away **100%** of administrative UI clutter.
 
