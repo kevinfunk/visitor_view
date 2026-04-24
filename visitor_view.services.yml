@@ -1,0 +1,19 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  visitor_view.hooks:
+    class: Drupal\visitor_view\Hook\VisitorViewHooks
+
+  visitor_view.path_processor:
+    class: Drupal\visitor_view\PathProcessor\VisitorViewPathProcessor
+    arguments: ['@request_stack']
+    tags:
+      - { name: path_processor_outbound, priority: 300 }
+
+  visitor_view.request_policy:
+    class: Drupal\visitor_view\PageCache\VisitorViewRequestPolicy
+    tags:
+      - { name: page_cache_request_policy }
+      - { name: dynamic_page_cache_request_policy }

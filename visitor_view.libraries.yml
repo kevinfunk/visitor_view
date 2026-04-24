@@ -1,0 +1,6 @@
+url_cleaner:
+  version: VERSION
+  js:
+    js/url_cleaner.js: { weight: -10 }
+  dependencies:
+    - core/drupal
