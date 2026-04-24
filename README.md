@@ -1,13 +1,9 @@
-# Visitor View
-
-A true frontend preview experience for Drupal.
-
 <img width="640" height="435" alt="visitor-view" src="https://github.com/user-attachments/assets/7d95f522-501a-485a-84f0-0160c6c717b8" />
 
+# Visitor View
+Visitor View integrates seamlessly with the Drupal Navigation module by adding a contextual **"Preview"** action to your Top Bar. Administrators often struggle to see the true site layout because the Admin UI—including the sidebar, top bar, and contextual links—injects CSS and DOM elements that alter the frontend theme's dimensions.
 
-Visitor View integrates seamlessly with Drupal 11's new Navigation module by adding a contextual **"Preview"** action to your Top Bar. With one click, it launches a new tab that renders the current page using your exact frontend theme, stripping away **100%** of administrative UI clutter.
-
-Administrators often struggle to see the true site layout because the Drupal Admin UI (such as the Navigation sidebar, horizontal Top Bar, and Contextual Links) injects CSS classes and DOM elements that alter the frontend theme's dimensions and appearance. Visitor View provides a fast, stateless way to view your site exactly as your visitors do, without logging out or opening an incognito window.
+With one click, Visitor View launches a new tab that strips away 100% of this administrative clutter. This provides a fast, stateless way to navigate your entire site exactly as a visitor would, ensuring a true-to-life browsing experience while maintaining your active administrative session in the original tab. No more logging out or opening incognito windows just to check a layout.
 
 ## Key Features
 
