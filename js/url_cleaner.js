@@ -19,7 +19,7 @@
 
       let isVisitorViewActive = window.sessionStorage.getItem(storageKey) === '1';
 
-      if (url.searchParams.has('visitor_view')) {
+      if (url.searchParams.get('visitor_view') === '1') {
         window.sessionStorage.setItem(storageKey, '1');
         isVisitorViewActive = true;
         url.searchParams.delete('visitor_view');
@@ -32,20 +32,7 @@
       }
 
       if (isVisitorViewActive) {
-        const killToolbar = () => {
-          document.querySelectorAll('.admin-toolbar, #navigation, #toolbar-administration').forEach(el => {
-            if (el !== document.body) {
-              el.remove();
-            }
-          });
-          document.body.classList.remove('admin-toolbar', 'toolbar-horizontal', 'toolbar-fixed', 'toolbar-tray-open');
-        };
-
-        killToolbar();
-
-        const observer = new MutationObserver(killToolbar);
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-
+        // Intercept standard link clicks.
         document.addEventListener('click', function (e) {
           if (e.defaultPrevented) {
             return;
@@ -63,8 +50,25 @@
               window.location.href = linkUrl.toString();
             }
           }
-          catch (err) {
-            // Ignore invalid URLs.
+          catch {
+            // Fail silently and let the browser handle the click normally.
+          }
+        }, true);
+
+        // Intercept form submissions so POST requests preserve the state.
+        document.addEventListener('submit', function (e) {
+          if (e.target && e.target.action) {
+            try {
+              const actionUrl = new URL(e.target.action);
+              if (actionUrl.host === window.location.host && !actionUrl.searchParams.has('visitor_view')) {
+                actionUrl.searchParams.set('visitor_view', '1');
+                e.target.action = actionUrl.toString();
+              }
+            }
+            catch {
+              // The form action is not a parseable standard URL.
+              // Fail silently and let the form submit normally.
+            }
           }
         }, true);
       }

@@ -5,6 +5,7 @@ namespace Drupal\visitor_view\Hook;
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Hook\Order\Order;
+use Drupal\Core\Session\AccountInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -20,13 +21,45 @@ class VisitorViewHooks {
   protected RequestStack $requestStack;
 
   /**
+   * The current user.
+   *
+   * @var \Drupal\Core\Session\AccountInterface
+   */
+  protected AccountInterface $currentUser;
+
+  /**
    * Constructs a new VisitorViewHooks object.
    *
    * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
    *   The request stack.
+   * @param \Drupal\Core\Session\AccountInterface $current_user
+   *   The current user.
    */
-  public function __construct(RequestStack $request_stack) {
+  public function __construct(RequestStack $request_stack, AccountInterface $current_user) {
     $this->requestStack = $request_stack;
+    $this->currentUser = $current_user;
+  }
+
+  /**
+   * Helper function to check if visitor view should be active.
+   */
+  protected function isVisitorViewActive(): bool {
+    $request = $this->requestStack->getCurrentRequest();
+    return $request && $request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('access navigation');
+  }
+
+  /**
+   * Implements hook_theme().
+   */
+  #[Hook('theme')]
+  public function theme(): array {
+    return [
+      'visitor_view_top_bar_link' => [
+        'variables' => [
+          'label' => NULL,
+        ],
+      ],
+    ];
   }
 
   /**
@@ -34,8 +67,7 @@ class VisitorViewHooks {
    */
   #[Hook('page_top', order: Order::Last)]
   public function pageTop(array &$page_top): void {
-    $request = $this->requestStack->getCurrentRequest();
-    if ($request && $request->query->has('visitor_view')) {
+    if ($this->isVisitorViewActive()) {
       unset($page_top['navigation']);
       unset($page_top['top_bar']);
       unset($page_top['toolbar']);
@@ -47,8 +79,7 @@ class VisitorViewHooks {
    */
   #[Hook('page_bottom', order: Order::Last)]
   public function pageBottom(array &$page_bottom): void {
-    $request = $this->requestStack->getCurrentRequest();
-    if ($request && $request->query->has('visitor_view')) {
+    if ($this->isVisitorViewActive()) {
       unset($page_bottom['navigation']);
       unset($page_bottom['toolbar']);
     }
@@ -59,8 +90,7 @@ class VisitorViewHooks {
    */
   #[Hook('contextual_links_view_alter')]
   public function contextualLinksViewAlter(array &$element, $items): void {
-    $request = $this->requestStack->getCurrentRequest();
-    if ($request && $request->query->has('visitor_view')) {
+    if ($this->isVisitorViewActive()) {
       $element = [];
     }
   }
@@ -70,8 +100,7 @@ class VisitorViewHooks {
    */
   #[Hook('menu_local_tasks_alter')]
   public function menuLocalTasksAlter(array &$data, string $route_name): void {
-    $request = $this->requestStack->getCurrentRequest();
-    if ($request && $request->query->has('visitor_view')) {
+    if ($this->isVisitorViewActive()) {
       $data['tabs'] = [];
     }
   }
@@ -91,9 +120,8 @@ class VisitorViewHooks {
   #[Hook('preprocess_html', order: Order::Last)]
   public function preprocessHtml(array &$variables): void {
     $variables['#cache']['contexts'][] = 'url.query_args:visitor_view';
-    $request = $this->requestStack->getCurrentRequest();
 
-    if ($request && $request->query->has('visitor_view')) {
+    if ($this->isVisitorViewActive()) {
       $variables['attributes']['class'][] = 'visitor-view-active';
 
       $classes_to_remove = [

@@ -1,0 +1,28 @@
+/* Hide standard admin toolbars when visitor view is active */
+body.visitor-view-active .admin-toolbar,
+body.visitor-view-active #navigation,
+body.visitor-view-active #toolbar-administration,
+body.visitor-view-active .contextual {
+  display: none !important;
+}
+
+/* Remove the outline that the Contextual module adds to blocks on hover */
+body.visitor-view-active .contextual-region {
+  outline: none !important;
+}
+
+/* Styling for the Top Bar Preview action */
+.visitor-view-top-bar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #4b5054;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.visitor-view-top-bar-action:hover {
+  background-color: #f3f4f6;
+}

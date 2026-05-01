@@ -20,9 +20,6 @@ class VisitorViewRequestPolicy implements RequestPolicyInterface {
 
   /**
    * Constructs a new VisitorViewRequestPolicy object.
-   *
-   * @param \Drupal\Core\Session\AccountInterface $current_user
-   *   The current user.
    */
   public function __construct(AccountInterface $current_user) {
     $this->currentUser = $current_user;
@@ -32,7 +29,7 @@ class VisitorViewRequestPolicy implements RequestPolicyInterface {
    * {@inheritdoc}
    */
   public function check(Request $request): ?string {
-    if ($request->query->has('visitor_view') && $this->currentUser->hasPermission('access navigation')) {
+    if ($request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('access navigation')) {
       return static::DENY;
     }
     return NULL;
