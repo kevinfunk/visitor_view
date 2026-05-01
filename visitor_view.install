@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Visitor View module.
+ */
+
+use Drupal\Core\Cache\Cache;
+
+/**
+ * Implements hook_install().
+ */
+function visitor_view_install(bool $is_syncing): void {
+  if ($is_syncing) {
+    return;
+  }
+
+  \Drupal::service('plugin.manager.menu.local_task')->clearCachedDefinitions();
+
+  Cache::invalidateTags(['local_task', 'rendered']);
+}

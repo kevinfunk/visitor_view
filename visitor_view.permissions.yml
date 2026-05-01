@@ -1,0 +1,4 @@
+use visitor view:
+  title: 'Use Visitor View'
+  description: 'Allows the user to launch a tab without administrative toolbars.'
+  restrict access: true

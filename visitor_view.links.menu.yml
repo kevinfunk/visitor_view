@@ -1,0 +1,12 @@
+visitor_view.settings:
+  title: 'Visitor View'
+  description: 'Configure the Visitor View button label and icon.'
+  parent: system.admin_config_ui
+  route_name: visitor_view.settings
+  weight: 100
+
+visitor_view.dynamic_preview:
+  class: Drupal\visitor_view\Plugin\Menu\VisitorViewMenuLink
+  title: 'Preview site'
+  menu_name: admin
+  weight: 999

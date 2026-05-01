@@ -18,19 +18,21 @@ class VisitorViewJsTest extends WebDriverTestBase {
   protected $defaultTheme = 'stark';
 
   /**
-   * {@inheritdoc}
+   * Test against the modern Navigation module.
+   *
+   * @var array
    */
   protected static $modules = ['node', 'navigation', 'visitor_view'];
 
   /**
-   * A test user with permission to access navigation.
+   * The admin user.
    *
    * @var \Drupal\user\UserInterface
    */
   protected UserInterface $adminUser;
 
   /**
-   * An array of test nodes.
+   * Nodes created for testing.
    *
    * @var \Drupal\node\NodeInterface[]
    */
@@ -44,11 +46,16 @@ class VisitorViewJsTest extends WebDriverTestBase {
     $this->drupalCreateContentType(['type' => 'page']);
     $this->nodes[1] = $this->drupalCreateNode(['type' => 'page', 'title' => 'Page One']);
     $this->nodes[2] = $this->drupalCreateNode(['type' => 'page', 'title' => 'Page Two']);
-    $this->adminUser = $this->drupalCreateUser(['access content', 'access navigation']);
+
+    $this->adminUser = $this->drupalCreateUser([
+      'access content',
+      'access navigation',
+      'use visitor view',
+    ]);
   }
 
   /**
-   * Tests the JavaScript behaviors of the module.
+   * Tests that the JS intercepts and hides navigation appropriately.
    */
   public function testJavascriptBehaviors(): void {
     $this->drupalLogin($this->adminUser);
@@ -58,11 +65,15 @@ class VisitorViewJsTest extends WebDriverTestBase {
     $session = $this->getSession();
     $page = $session->getPage();
 
+    // Wait for JS to clean the URL via history.replaceState()
     $session->wait(5000, 'window.location.search.indexOf("visitor_view") === -1');
 
     $this->assertStringNotContainsString('visitor_view', $session->getCurrentUrl());
-    $this->assertSession()->elementNotExists('css', '.admin-toolbar');
 
+    // Verify the navigation bar was removed using the DOM ID.
+    $this->assertSession()->elementNotExists('css', '#admin-toolbar');
+
+    // Create a dynamic link to Node 2 to simulate a user click.
     $node2_url = $this->nodes[2]->toUrl()->toString();
     $session->executeScript("
       let a = document.createElement('a');
@@ -74,10 +85,12 @@ class VisitorViewJsTest extends WebDriverTestBase {
 
     $page->find('css', '#test-link')->click();
 
+    // Wait for the next page to load.
     $session->wait(5000, 'document.title.indexOf("Page Two") !== -1');
 
+    // Verify state persisted across the navigation.
     $this->assertStringNotContainsString('visitor_view', $session->getCurrentUrl());
-    $this->assertSession()->elementNotExists('css', '.admin-toolbar');
+    $this->assertSession()->elementNotExists('css', '#admin-toolbar');
     $this->assertSession()->elementExists('css', 'body.visitor-view-active');
   }
 

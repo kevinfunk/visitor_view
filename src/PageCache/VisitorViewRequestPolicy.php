@@ -29,7 +29,7 @@ class VisitorViewRequestPolicy implements RequestPolicyInterface {
    * {@inheritdoc}
    */
   public function check(Request $request): ?string {
-    if ($request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('access navigation')) {
+    if ($request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('use visitor view')) {
       return static::DENY;
     }
     return NULL;

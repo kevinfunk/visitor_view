@@ -1,0 +1,7 @@
+visitor_view.settings:
+  path: '/admin/config/user-interface/visitor-view'
+  defaults:
+    _form: '\Drupal\visitor_view\Form\VisitorViewSettingsForm'
+    _title: 'Visitor View Settings'
+  requirements:
+    _permission: 'administer site configuration'

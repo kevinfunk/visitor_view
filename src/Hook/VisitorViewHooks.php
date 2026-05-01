@@ -2,10 +2,19 @@
 
 namespace Drupal\visitor_view\Hook;
 
-use Drupal\Core\Template\Attribute;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Hook\Order\Order;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\Template\Attribute;
+use Drupal\Core\Theme\ThemeManagerInterface;
+use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -13,53 +22,110 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 class VisitorViewHooks {
 
-  /**
-   * The request stack.
-   *
-   * @var \Symfony\Component\HttpFoundation\RequestStack
-   */
-  protected RequestStack $requestStack;
-
-  /**
-   * The current user.
-   *
-   * @var \Drupal\Core\Session\AccountInterface
-   */
-  protected AccountInterface $currentUser;
+  use StringTranslationTrait;
 
   /**
    * Constructs a new VisitorViewHooks object.
-   *
-   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
-   *   The request stack.
-   * @param \Drupal\Core\Session\AccountInterface $current_user
-   *   The current user.
    */
-  public function __construct(RequestStack $request_stack, AccountInterface $current_user) {
-    $this->requestStack = $request_stack;
-    $this->currentUser = $current_user;
-  }
+  public function __construct(
+    protected RequestStack $requestStack,
+    protected AccountInterface $currentUser,
+    protected ThemeManagerInterface $themeManager,
+    protected ConfigFactoryInterface $configFactory,
+    protected ModuleHandlerInterface $moduleHandler,
+    protected RouteMatchInterface $routeMatch,
+  ) {}
 
   /**
    * Helper function to check if visitor view should be active.
    */
   protected function isVisitorViewActive(): bool {
     $request = $this->requestStack->getCurrentRequest();
-    return $request && $request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('access navigation');
+    return $request && $request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('use visitor view');
   }
 
   /**
-   * Implements hook_theme().
+   * Implements hook_toolbar().
    */
-  #[Hook('theme')]
-  public function theme(): array {
-    return [
-      'visitor_view_top_bar_link' => [
-        'variables' => [
-          'label' => NULL,
+  #[Hook('toolbar')]
+  public function toolbar(): array {
+    $items = [];
+
+    // If the Navigation module is active (it uses the Top Bar plugin instead).
+    if ($this->moduleHandler->moduleExists('navigation')) {
+      return $items;
+    }
+
+    // If the admin has configured the link to show in Local Tasks instead.
+    $config = $this->configFactory->get('visitor_view.settings');
+    if ($config->get('display_location') !== 'top_bar') {
+      return $items;
+    }
+
+    $active_theme = $this->themeManager->getActiveTheme()->getName();
+    $default_theme = $this->configFactory->get('system.theme')->get('default');
+
+    if ($active_theme !== $default_theme) {
+      return $items;
+    }
+
+    try {
+      $url = Url::fromRoute('<current>', [], [
+        'query' => ['visitor_view' => 1],
+        'absolute' => TRUE,
+      ]);
+    }
+    catch (\Exception $e) {
+      return $items;
+    }
+
+    $button_label = $config->get('button_label') ?: 'Preview site';
+    $button_icon = $config->get('button_icon') ?: 'arrow-square-out';
+
+    $items['visitor_view'] = [
+      '#type' => 'toolbar_item',
+      'tab' => [
+        '#type' => 'link',
+        '#title' => [
+          '#type' => 'html_tag',
+          '#tag' => 'span',
+          '#attributes' => ['class' => ['visitor-view-top-bar-action']],
+          'icon' => [
+            '#type' => 'icon',
+            '#pack_id' => 'visitor_view',
+            '#icon_id' => $button_icon,
+            '#settings' => ['size' => 16],
+          ],
+          'label' => [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#value' => $button_label,
+          ],
+        ],
+        '#url' => $url,
+        '#attributes' => [
+          'title' => $this->t('Open this page in a new tab without admin tools'),
+          'class' => [
+            'toolbar-item',
+            'visitor-view-toolbar-link',
+          ],
+          'target' => '_blank',
+          'style' => 'text-decoration: none;',
+        ],
+      ],
+      '#weight' => 999,
+      '#cache' => [
+        'contexts' => ['route', 'theme'],
+        'tags' => ['config:visitor_view.settings'],
+      ],
+      '#attached' => [
+        'library' => [
+          'visitor_view/url_cleaner',
         ],
       ],
     ];
+
+    return $items;
   }
 
   /**
@@ -99,9 +165,72 @@ class VisitorViewHooks {
    * Implements hook_menu_local_tasks_alter().
    */
   #[Hook('menu_local_tasks_alter')]
-  public function menuLocalTasksAlter(array &$data, string $route_name): void {
+  public function menuLocalTasksAlter(array &$data, string $route_name, CacheableMetadata &$cacheability): void {
     if ($this->isVisitorViewActive()) {
       $data['tabs'] = [];
+      return;
+    }
+
+    $config = $this->configFactory->get('visitor_view.settings');
+    $cacheability->addCacheableDependency($config);
+
+    if ($config->get('display_location') === 'local_tasks' && $this->currentUser->hasPermission('use visitor view')) {
+      $active_theme = $this->themeManager->getActiveTheme()->getName();
+      $default_theme = $this->configFactory->get('system.theme')->get('default');
+
+      if ($active_theme === $default_theme) {
+
+        // If the page does not naturally have any tabs configured.
+        if (empty($data['tabs'][0])) {
+          return;
+        }
+
+        $entity_found = FALSE;
+        $can_edit = FALSE;
+
+        foreach ($this->routeMatch->getParameters() as $parameter) {
+          if ($parameter instanceof EntityInterface) {
+            $entity_found = TRUE;
+            $access_result = $parameter->access('update', $this->currentUser, TRUE);
+            $cacheability->addCacheableDependency($access_result);
+
+            if ($access_result->isAllowed()) {
+              $can_edit = TRUE;
+            }
+            // Only check the primary entity on the route.
+            break;
+          }
+        }
+
+        // Hide tab if an entity exists on the page but the user cannot edit it.
+        if ($entity_found && !$can_edit) {
+          return;
+        }
+
+        try {
+          $url = Url::fromRoute('<current>', [], ['query' => ['visitor_view' => 1]]);
+          $button_label = $config->get('button_label') ?: 'Preview site';
+
+          $data['tabs'][0]['visitor_view.preview'] = [
+            '#theme' => 'menu_local_task',
+            '#link' => [
+              'title' => $button_label,
+              'url' => $url,
+              'localized_options' => [
+                'attributes' => [
+                  'target' => '_blank',
+                  'class' => ['visitor-view-dynamic-trigger'],
+                ],
+              ],
+            ],
+            '#weight' => 999,
+            '#access' => AccessResult::allowed(),
+          ];
+        }
+        catch (\Exception $e) {
+          // Fail silently if current route cannot be generated.
+        }
+      }
     }
   }
 
@@ -112,6 +241,7 @@ class VisitorViewHooks {
   public function pageAttachments(array &$attachments): void {
     $attachments['#attached']['library'][] = 'visitor_view/url_cleaner';
     $attachments['#cache']['contexts'][] = 'url.query_args:visitor_view';
+    $attachments['#cache']['contexts'][] = 'user.permissions';
   }
 
   /**
@@ -120,6 +250,7 @@ class VisitorViewHooks {
   #[Hook('preprocess_html', order: Order::Last)]
   public function preprocessHtml(array &$variables): void {
     $variables['#cache']['contexts'][] = 'url.query_args:visitor_view';
+    $variables['#cache']['contexts'][] = 'user.permissions';
 
     if ($this->isVisitorViewActive()) {
       $variables['attributes']['class'][] = 'visitor-view-active';
@@ -131,12 +262,6 @@ class VisitorViewHooks {
         'toolbar-tray-open',
       ];
 
-      // $variables['attributes']['class'] is a standard PHP Array.
-      if (isset($variables['attributes']['class']) && is_array($variables['attributes']['class'])) {
-        $variables['attributes']['class'] = array_values(array_diff($variables['attributes']['class'], $classes_to_remove));
-      }
-
-      // $variables['attributes'] has already been cast to an Attribute object.
       if (isset($variables['attributes']) && $variables['attributes'] instanceof Attribute) {
         $variables['attributes']->removeClass($classes_to_remove);
       }

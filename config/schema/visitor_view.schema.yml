@@ -1,0 +1,13 @@
+visitor_view.settings:
+  type: config_object
+  label: 'Visitor View settings'
+  mapping:
+    button_label:
+      type: label
+      label: 'Button label'
+    button_icon:
+      type: string
+      label: 'Button icon'
+    display_location:
+      type: string
+      label: 'Display location'

@@ -2,5 +2,4 @@ name: 'Visitor View'
 type: module
 description: 'Adds a Top Bar item to open the site in a new tab without admin menus, toolbars, or local tasks.'
 core_version_requirement: ^11
-dependencies:
-  - drupal:navigation
+configure: visitor_view.settings

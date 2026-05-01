@@ -7,6 +7,12 @@
         return;
       }
 
+      document.querySelectorAll('.visitor-view-dynamic-trigger').forEach(link => {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('visitor_view', '1');
+        link.href = currentUrl.toString();
+      });
+
       const url = new URL(window.location.href);
       const storageKey = 'visitor_view_active';
 
@@ -32,7 +38,22 @@
       }
 
       if (isVisitorViewActive) {
-        // Intercept standard link clicks.
+        if (!document.getElementById('visitor-view-exit')) {
+          const exitButton = document.createElement('a');
+          exitButton.id = 'visitor-view-exit';
+          exitButton.className = 'visitor-view-exit-button';
+
+          exitButton.setAttribute('role', 'button');
+          exitButton.setAttribute('aria-label', Drupal.t('Exit Visitor View mode'));
+
+          const exitUrl = new URL(window.location.href);
+          exitUrl.searchParams.set('visitor_view', '0');
+
+          exitButton.href = exitUrl.toString();
+          exitButton.innerText = Drupal.t('Exit Visitor View');
+          document.body.appendChild(exitButton);
+        }
+
         document.addEventListener('click', function (e) {
           if (e.defaultPrevented) {
             return;
@@ -44,7 +65,16 @@
 
           try {
             const linkUrl = new URL(target.href);
+
+            if (linkUrl.pathname === window.location.pathname && target.getAttribute('href').startsWith('#')) {
+              return;
+            }
+
             if (linkUrl.host === window.location.host && !linkUrl.searchParams.has('visitor_view')) {
+              if (linkUrl.searchParams.get('visitor_view') === '0') {
+                  return;
+              }
+
               e.preventDefault();
               linkUrl.searchParams.set('visitor_view', '1');
               window.location.href = linkUrl.toString();
@@ -55,7 +85,6 @@
           }
         }, true);
 
-        // Intercept form submissions so POST requests preserve the state.
         document.addEventListener('submit', function (e) {
           if (e.target && e.target.action) {
             try {
@@ -67,7 +96,6 @@
             }
             catch {
               // The form action is not a parseable standard URL.
-              // Fail silently and let the form submit normally.
             }
           }
         }, true);
