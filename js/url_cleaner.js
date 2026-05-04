@@ -1,4 +1,4 @@
-(function (Drupal) {
+(function (Drupal, drupalSettings) {
   'use strict';
 
   Drupal.behaviors.visitorViewUrlCleaner = {
@@ -38,11 +38,17 @@
       }
 
       if (isVisitorViewActive) {
+        if (typeof drupalSettings !== 'undefined' && drupalSettings.visitorView && drupalSettings.visitorView.classesToRemove) {
+          const classesToScrub = drupalSettings.visitorView.classesToRemove;
+          if (classesToScrub.length > 0) {
+            document.body.classList.remove(...classesToScrub);
+          }
+        }
+
         if (!document.getElementById('visitor-view-exit')) {
           const exitButton = document.createElement('a');
           exitButton.id = 'visitor-view-exit';
           exitButton.className = 'visitor-view-exit-button';
-
           exitButton.setAttribute('role', 'button');
           exitButton.setAttribute('aria-label', Drupal.t('Exit Visitor View mode'));
 
@@ -103,4 +109,4 @@
     }
   };
 
-})(Drupal);
+})(Drupal, drupalSettings);

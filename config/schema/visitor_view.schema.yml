@@ -11,3 +11,9 @@ visitor_view.settings:
     display_location:
       type: string
       label: 'Display location'
+    classes_to_remove:
+      type: sequence
+      label: 'Additional body classes to remove'
+      sequence:
+        type: string
+        label: 'CSS Class'

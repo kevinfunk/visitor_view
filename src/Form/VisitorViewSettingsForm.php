@@ -56,6 +56,7 @@ class VisitorViewSettingsForm extends ConfigFormBase {
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $config = $this->config('visitor_view.settings');
+
     $current_label = $form_state->getValue('button_label') ?? $config->get('button_label') ?? 'Preview site';
     $current_icon = $form_state->getValue('button_icon') ?? $config->get('button_icon') ?? 'arrow-square-out';
 
@@ -102,7 +103,6 @@ class VisitorViewSettingsForm extends ConfigFormBase {
       '#description' => $this->t('The text displayed next to the icon.'),
       '#default_value' => $config->get('button_label') ?: 'Preview site',
       '#required' => TRUE,
-      // Add AJAX callback to rebuild the preview.
       '#ajax' => [
         'callback' => '::updatePreview',
         'wrapper' => 'visitor-view-live-preview',
@@ -123,6 +123,19 @@ class VisitorViewSettingsForm extends ConfigFormBase {
       ],
     ];
 
+    $saved_classes = $config->get('classes_to_remove') ?? [];
+
+    if (!is_array($saved_classes)) {
+      $saved_classes = [];
+    }
+
+    $form['classes_to_remove'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Body Classes to Remove'),
+      '#description' => $this->t('Enter any additional body classes that should be removed when Visitor View is active. Put each class on a new line. Core toolbar classes (like `admin-toolbar`) are removed automatically.'),
+      '#default_value' => implode("\n", $saved_classes),
+    ];
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -137,7 +150,7 @@ class VisitorViewSettingsForm extends ConfigFormBase {
    * Helper to scan the icons directory and build select options.
    *
    * @return array
-   * An array of icon options formatted for a select field.
+   *   An array of icon options formatted for a select field.
    */
   protected function getIconOptions(): array {
     $options = [];
@@ -146,18 +159,13 @@ class VisitorViewSettingsForm extends ConfigFormBase {
 
     if (is_dir($icons_path)) {
       $files = glob($icons_path . '/*.svg');
-
       foreach ($files as $file) {
         $filename = basename($file, '.svg');
-        $label = str_replace(['-', '_'], ' ', $filename);
-        $label = ucwords($label);
-
+        $label = ucwords(str_replace(['-', '_'], ' ', $filename));
         $options[$filename] = $label;
       }
     }
-
     asort($options);
-
     return $options;
   }
 
@@ -165,10 +173,14 @@ class VisitorViewSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $classes_string = $form_state->getValue('classes_to_remove');
+    $classes_array = array_values(array_filter(preg_split('/\s+/', $classes_string)));
+
     $this->config('visitor_view.settings')
       ->set('display_location', $form_state->getValue('display_location'))
       ->set('button_label', $form_state->getValue('button_label'))
       ->set('button_icon', $form_state->getValue('button_icon'))
+      ->set('classes_to_remove', $classes_array)
       ->save();
 
     $this->localTaskManager->clearCachedDefinitions();

@@ -1,5 +1,5 @@
 name: 'Visitor View'
 type: module
 description: 'Adds a Top Bar item to open the site in a new tab without admin menus, toolbars, or local tasks.'
-core_version_requirement: ^11
+core_version_requirement: ^11.1
 configure: visitor_view.settings

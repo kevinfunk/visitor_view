@@ -251,16 +251,30 @@ class VisitorViewHooks {
   public function preprocessHtml(array &$variables): void {
     $variables['#cache']['contexts'][] = 'url.query_args:visitor_view';
     $variables['#cache']['contexts'][] = 'user.permissions';
+    $variables['#cache']['tags'][] = 'config:visitor_view.settings';
 
     if ($this->isVisitorViewActive()) {
-      $variables['attributes']['class'][] = 'visitor-view-active';
-
-      $classes_to_remove = [
+      $base_classes = [
         'admin-toolbar',
         'toolbar-horizontal',
         'toolbar-fixed',
         'toolbar-tray-open',
       ];
+
+      $config = $this->configFactory->get('visitor_view.settings');
+      $custom_classes = $config->get('classes_to_remove') ?? [];
+      $classes_to_remove = array_merge($base_classes, $custom_classes);
+
+      $variables['#attached']['drupalSettings']['visitorView']['classesToRemove'] = array_values($classes_to_remove);
+
+      if (!isset($variables['attributes']['class'])) {
+        $variables['attributes']['class'] = [];
+      }
+      $variables['attributes']['class'][] = 'visitor-view-active';
+
+      if (is_array($variables['attributes']['class'])) {
+        $variables['attributes']['class'] = array_diff($variables['attributes']['class'], $classes_to_remove);
+      }
 
       if (isset($variables['attributes']) && $variables['attributes'] instanceof Attribute) {
         $variables['attributes']->removeClass($classes_to_remove);

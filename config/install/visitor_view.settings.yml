@@ -1,3 +1,6 @@
 button_label: 'Preview site'
 button_icon: desktop
 display_location: top_bar
+classes_to_remove:
+  - user-logged-in
+  - gin--horizontal-toolbar

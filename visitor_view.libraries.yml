@@ -7,3 +7,4 @@ url_cleaner:
       css/visitor_view.css: {}
   dependencies:
     - core/drupal
+    - core/drupalSettings
