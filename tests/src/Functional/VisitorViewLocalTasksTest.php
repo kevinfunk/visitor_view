@@ -112,4 +112,35 @@ class VisitorViewLocalTasksTest extends BrowserTestBase {
     $this->assertSession()->elementNotExists('css', '.visitor-view-dynamic-trigger');
   }
 
+  /**
+   * Tests that the local task correctly generates a canonical URL.
+   *
+   * This ensures that if an admin is on a sub-route (like /edit or /latest),
+   * the preview link still sends them to the actual frontend page.
+   */
+  public function testCanonicalRouteEnforcement(): void {
+    $this->drupalLogin($this->adminUser);
+
+    // Change the setting to Local Tasks.
+    $this->drupalGet('admin/config/user-interface/visitor-view');
+    $this->submitForm([
+      'display_location' => 'local_tasks',
+    ], 'Save configuration');
+
+    // Visit the Edit form of the node.
+    $edit_url = $this->testNode->toUrl('edit-form');
+    $this->drupalGet($edit_url);
+    $this->assertSession()->statusCodeEquals(200);
+
+    // Calculate the expected canonical URL with our query parameter.
+    $canonical_url = $this->testNode->toUrl('canonical', ['query' => ['visitor_view' => 1]])->toString();
+
+    // Verify the generated tab link points to the canonical URL.
+    $this->assertSession()->linkByHrefExists($canonical_url);
+
+    // Verify it did NOT blindly generate a link to the current <edit> route.
+    $bad_edit_url = $this->testNode->toUrl('edit-form', ['query' => ['visitor_view' => 1]])->toString();
+    $this->assertSession()->linkByHrefNotExists($bad_edit_url);
+  }
+
 }

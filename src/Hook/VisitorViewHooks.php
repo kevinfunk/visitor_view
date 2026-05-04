@@ -41,7 +41,9 @@ class VisitorViewHooks {
    */
   protected function isVisitorViewActive(): bool {
     $request = $this->requestStack->getCurrentRequest();
-    return $request && $request->query->get('visitor_view') === '1' && $this->currentUser->hasPermission('use visitor view');
+    return $request &&
+      $request->query->get('visitor_view') === '1' &&
+      $this->currentUser->hasPermission('use visitor view');
   }
 
   /**
@@ -51,12 +53,12 @@ class VisitorViewHooks {
   public function toolbar(): array {
     $items = [];
 
-    // If the Navigation module is active (it uses the Top Bar plugin instead).
+    // If Navigation module is active (uses the Top Bar plugin instead).
     if ($this->moduleHandler->moduleExists('navigation')) {
       return $items;
     }
 
-    // If the admin has configured the link to show in Local Tasks instead.
+    // If admin has configured the link to show in Local Tasks instead.
     $config = $this->configFactory->get('visitor_view.settings');
     if ($config->get('display_location') !== 'top_bar') {
       return $items;
@@ -104,7 +106,7 @@ class VisitorViewHooks {
         ],
         '#url' => $url,
         '#attributes' => [
-          'title' => $this->t('Open this page in a new tab without admin tools'),
+          'title' => $this->t('Open in a new tab without admin tools'),
           'class' => [
             'toolbar-item',
             'visitor-view-toolbar-link',
@@ -165,7 +167,11 @@ class VisitorViewHooks {
    * Implements hook_menu_local_tasks_alter().
    */
   #[Hook('menu_local_tasks_alter')]
-  public function menuLocalTasksAlter(array &$data, string $route_name, CacheableMetadata &$cacheability): void {
+  public function menuLocalTasksAlter(
+    array &$data,
+    string $route_name,
+    CacheableMetadata &$cacheability,
+  ): void {
     if ($this->isVisitorViewActive()) {
       $data['tabs'] = [];
       return;
@@ -174,11 +180,14 @@ class VisitorViewHooks {
     $config = $this->configFactory->get('visitor_view.settings');
     $cacheability->addCacheableDependency($config);
 
-    if ($config->get('display_location') === 'local_tasks' && $this->currentUser->hasPermission('use visitor view')) {
+    if (
+      $config->get('display_location') === 'local_tasks' &&
+      $this->currentUser->hasPermission('use visitor view')
+    ) {
       $active_theme = $this->themeManager->getActiveTheme()->getName();
-      $default_theme = $this->configFactory->get('system.theme')->get('default');
+      $default = $this->configFactory->get('system.theme')->get('default');
 
-      if ($active_theme === $default_theme) {
+      if ($active_theme === $default) {
 
         // If the page does not naturally have any tabs configured.
         if (empty($data['tabs'][0])) {
@@ -187,10 +196,12 @@ class VisitorViewHooks {
 
         $entity_found = FALSE;
         $can_edit = FALSE;
+        $primary_entity = NULL;
 
         foreach ($this->routeMatch->getParameters() as $parameter) {
           if ($parameter instanceof EntityInterface) {
             $entity_found = TRUE;
+            $primary_entity = $parameter;
             $access_result = $parameter->access('update', $this->currentUser, TRUE);
             $cacheability->addCacheableDependency($access_result);
 
@@ -202,13 +213,23 @@ class VisitorViewHooks {
           }
         }
 
-        // Hide tab if an entity exists on the page but the user cannot edit it.
+        // Hide tab if an entity exists on the page but user cannot edit it.
         if ($entity_found && !$can_edit) {
           return;
         }
 
         try {
-          $url = Url::fromRoute('<current>', [], ['query' => ['visitor_view' => 1]]);
+          if ($primary_entity && $primary_entity->hasLinkTemplate('canonical')) {
+            $url = $primary_entity->toUrl('canonical', [
+              'query' => ['visitor_view' => 1],
+            ]);
+          }
+          else {
+            $url = Url::fromRoute('<current>', [], [
+              'query' => ['visitor_view' => 1],
+            ]);
+          }
+
           $button_label = $config->get('button_label') ?: 'Preview site';
 
           $data['tabs'][0]['visitor_view.preview'] = [
@@ -263,9 +284,11 @@ class VisitorViewHooks {
 
       $config = $this->configFactory->get('visitor_view.settings');
       $custom_classes = $config->get('classes_to_remove') ?? [];
+
       $classes_to_remove = array_merge($base_classes, $custom_classes);
 
-      $variables['#attached']['drupalSettings']['visitorView']['classesToRemove'] = array_values($classes_to_remove);
+      $variables['#attached']['drupalSettings']['visitorView']['classesToRemove'] =
+        array_values($classes_to_remove);
 
       if (!isset($variables['attributes']['class'])) {
         $variables['attributes']['class'] = [];
@@ -273,10 +296,16 @@ class VisitorViewHooks {
       $variables['attributes']['class'][] = 'visitor-view-active';
 
       if (is_array($variables['attributes']['class'])) {
-        $variables['attributes']['class'] = array_diff($variables['attributes']['class'], $classes_to_remove);
+        $variables['attributes']['class'] = array_diff(
+          $variables['attributes']['class'],
+          $classes_to_remove
+        );
       }
 
-      if (isset($variables['attributes']) && $variables['attributes'] instanceof Attribute) {
+      if (
+        isset($variables['attributes']) &&
+        $variables['attributes'] instanceof Attribute
+      ) {
         $variables['attributes']->removeClass($classes_to_remove);
       }
     }
