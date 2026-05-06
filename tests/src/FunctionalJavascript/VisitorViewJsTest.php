@@ -22,7 +22,7 @@ class VisitorViewJsTest extends WebDriverTestBase {
    *
    * @var array
    */
-  protected static $modules = ['node', 'navigation', 'visitor_view'];
+  protected static $modules = ['node', 'navigation', 'big_pipe', 'visitor_view'];
 
   /**
    * The admin user.
@@ -92,6 +92,41 @@ class VisitorViewJsTest extends WebDriverTestBase {
     $this->assertStringNotContainsString('visitor_view', $session->getCurrentUrl());
     $this->assertSession()->elementNotExists('css', '#admin-toolbar');
     $this->assertSession()->elementExists('css', 'body.visitor-view-active');
+  }
+
+  /**
+   * Tests that the once() implementation prevents infinite loops in BigPipe.
+   */
+  public function testBigPipeLoopPrevention(): void {
+    $this->drupalLogin($this->adminUser);
+
+    // 1. Visit the node with the query parameter to trigger the initial JS.
+    $this->drupalGet($this->nodes[1]->toUrl('canonical', ['query' => ['visitor_view' => 1]]));
+
+    $session = $this->getSession();
+
+    // 2. Wait for the initial script execution to clean the URL.
+    $session->wait(5000, 'window.location.search.indexOf("visitor_view") === -1');
+    $this->assertStringNotContainsString('visitor_view', $session->getCurrentUrl());
+
+    // 3. Inject a temporary window variable into the current DOM.
+    // If the page refreshes, this variable will be destroyed.
+    $session->executeScript('window.visitorViewTestMarker = "survived";');
+
+    // 4. Manually trigger Drupal.attachBehaviors again.
+    // This perfectly mimics what the BigPipe module does when it streams
+    // secondary chunks (like blocks or late attachments) to the page.
+    $session->executeScript('Drupal.attachBehaviors(document);');
+
+    // Wait for a moment to allow any erroneous redirects to begin executing.
+    $session->wait(2000);
+
+    // 5. Evaluate the marker.
+    $marker = $session->evaluateScript('window.visitorViewTestMarker');
+
+    // If 'once' is missing or broken, the page will have refreshed due to the
+    // replaceState mismatch, making the marker null/undefined.
+    $this->assertEquals('survived', $marker, 'The Javascript triggered a page refresh loop when behaviors were re-attached.');
   }
 
 }

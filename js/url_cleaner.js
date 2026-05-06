@@ -1,17 +1,24 @@
-(function (Drupal, drupalSettings) {
+(function (Drupal, drupalSettings, once) {
   'use strict';
 
   Drupal.behaviors.visitorViewUrlCleaner = {
     attach: function (context) {
-      if (context !== document) {
-        return;
-      }
 
-      document.querySelectorAll('.visitor-view-dynamic-trigger').forEach(link => {
+      const triggers = once('visitor-view-trigger', '.visitor-view-dynamic-trigger', context);
+      triggers.forEach(link => {
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.set('visitor_view', '1');
         link.href = currentUrl.toString();
       });
+
+      if (context !== document) {
+        return;
+      }
+
+      const processed = once('visitor-view-cleaner', 'html', context);
+      if (processed.length === 0) {
+        return;
+      }
 
       const url = new URL(window.location.href);
       const storageKey = 'visitor_view_active';
@@ -109,4 +116,4 @@
     }
   };
 
-})(Drupal, drupalSettings);
+})(Drupal, drupalSettings, once);
