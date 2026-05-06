@@ -15,7 +15,10 @@ body.visitor-view-active #toolbar-administration,
 body.visitor-view-active #toolbar-bar,
 body.visitor-view-active .contextual,
 body.visitor-view-active .gin-secondary-toolbar,
-body.visitor-view-active .gin-breadcrumb-wrapper {
+body.visitor-view-active .gin-breadcrumb-wrapper,
+body.visitor-view-active nav.tabs,
+body.visitor-view-active .tabs,
+body.visitor-view-active .block-local-tasks-block {
   display: none !important;
 }
 
