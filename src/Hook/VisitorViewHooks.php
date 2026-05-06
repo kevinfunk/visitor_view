@@ -184,73 +184,84 @@ class VisitorViewHooks {
       $config->get('display_location') === 'local_tasks' &&
       $this->currentUser->hasPermission('use visitor view')
     ) {
+      // If the page does not naturally have any tabs configured.
+      if (empty($data['tabs'][0])) {
+        return;
+      }
+
+      $entity_found = FALSE;
+      $can_edit = FALSE;
+      $primary_entity = NULL;
+
+      foreach ($this->routeMatch->getParameters() as $parameter) {
+        if ($parameter instanceof EntityInterface) {
+          $entity_found = TRUE;
+          $primary_entity = $parameter;
+          $access_result = $parameter->access('update', $this->currentUser, TRUE);
+          $cacheability->addCacheableDependency($access_result);
+
+          if ($access_result->isAllowed()) {
+            $can_edit = TRUE;
+          }
+          // Only check the primary entity on the route.
+          break;
+        }
+      }
+
       $active_theme = $this->themeManager->getActiveTheme()->getName();
       $default = $this->configFactory->get('system.theme')->get('default');
 
-      if ($active_theme === $default) {
+      if ($active_theme !== $default && !$entity_found) {
+        return;
+      }
 
-        // If the page does not naturally have any tabs configured.
-        if (empty($data['tabs'][0])) {
-          return;
-        }
+      // Hide tab if an entity exists on the page but user cannot edit it.
+      if ($entity_found && !$can_edit) {
+        return;
+      }
 
-        $entity_found = FALSE;
-        $can_edit = FALSE;
-        $primary_entity = NULL;
+      try {
+        if ($primary_entity && $primary_entity->hasLinkTemplate('canonical')) {
+          $current_route = $this->routeMatch->getRouteName();
+          $canonical_route = 'entity.' . $primary_entity->getEntityTypeId() . '.canonical';
 
-        foreach ($this->routeMatch->getParameters() as $parameter) {
-          if ($parameter instanceof EntityInterface) {
-            $entity_found = TRUE;
-            $primary_entity = $parameter;
-            $access_result = $parameter->access('update', $this->currentUser, TRUE);
-            $cacheability->addCacheableDependency($access_result);
-
-            if ($access_result->isAllowed()) {
-              $can_edit = TRUE;
-            }
-            // Only check the primary entity on the route.
-            break;
-          }
-        }
-
-        // Hide tab if an entity exists on the page but user cannot edit it.
-        if ($entity_found && !$can_edit) {
-          return;
-        }
-
-        try {
-          if ($primary_entity && $primary_entity->hasLinkTemplate('canonical')) {
-            $url = $primary_entity->toUrl('canonical', [
-              'query' => ['visitor_view' => 1],
-            ]);
-          }
-          else {
+          if ($current_route === $canonical_route) {
             $url = Url::fromRoute('<current>', [], [
               'query' => ['visitor_view' => 1],
             ]);
           }
+          else {
+            $url = $primary_entity->toUrl('canonical', [
+              'query' => ['visitor_view' => 1],
+            ]);
+          }
+        }
+        else {
+          $url = Url::fromRoute('<current>', [], [
+            'query' => ['visitor_view' => 1],
+          ]);
+        }
 
-          $button_label = $config->get('button_label') ?: 'Preview site';
+        $button_label = $config->get('button_label') ?: 'Preview site';
 
-          $data['tabs'][0]['visitor_view.preview'] = [
-            '#theme' => 'menu_local_task',
-            '#link' => [
-              'title' => $button_label,
-              'url' => $url,
-              'localized_options' => [
-                'attributes' => [
-                  'target' => '_blank',
-                  'class' => ['visitor-view-dynamic-trigger'],
-                ],
+        $data['tabs'][0]['visitor_view.preview'] = [
+          '#theme' => 'menu_local_task',
+          '#link' => [
+            'title' => $button_label,
+            'url' => $url,
+            'localized_options' => [
+              'attributes' => [
+                'target' => '_blank',
+                'class' => ['visitor-view-dynamic-trigger'],
               ],
             ],
-            '#weight' => 999,
-            '#access' => AccessResult::allowed(),
-          ];
-        }
-        catch (\Exception $e) {
-          // Fail silently if current route cannot be generated.
-        }
+          ],
+          '#weight' => 999,
+          '#access' => AccessResult::allowed(),
+        ];
+      }
+      catch (\Exception $e) {
+        // Fail silently if current route cannot be generated.
       }
     }
   }
