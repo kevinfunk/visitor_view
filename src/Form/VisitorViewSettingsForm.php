@@ -92,7 +92,7 @@ class VisitorViewSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Choose where the Visitor View link should appear. This applies to both the Classic Toolbar and the Navigation module.'),
       '#options' => [
         'top_bar' => $this->t('Top Bar'),
-        'local_tasks' => $this->t('Local Tasks Dropdown'),
+        'local_tasks' => $this->t('Local Tasks'),
       ],
       '#default_value' => $config->get('display_location') ?: 'top_bar',
     ];
